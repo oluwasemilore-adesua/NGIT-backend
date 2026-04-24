@@ -1,5 +1,9 @@
 const bcrypt = require("bcryptjs");
 const User = require("../../models/users/user.model");
+const jwt = require("jsonwebtoken");
+const dotenv = require("dotenv").config();
+
+const JWT_TOKEN = process.env.JWT_TOKEN || "yourwwwww";
 
 const saltRounds = 10;
 
@@ -103,9 +107,9 @@ const deleteUser = async (req, res) => {
             return;
         }
 
-        const deleteUser = await User.findByIdAndDelete(id);
+        const deletedUser = await User.findByIdAndDelete(id);
 
-        if (!deleteUser){
+        if (!deletedUser){
             res.status(404).json({error: "User not found"});
             return;
         } else{
@@ -117,10 +121,68 @@ const deleteUser = async (req, res) => {
     }
 };
 
+
+const loginUser = async (req, res) => {
+    const {email, password} = req.body;
+
+    try{
+        const userEmailExist = await User.findOne({email});
+        if (!userEmailExist){
+            res.status(400).json ({error: "Invalid email or password"});
+            return;
+        }
+        if (password<6){
+            res
+            .status(400)
+            .json({error: "Password must be at least 6 characters long"});
+            return;
+        }
+
+        const comparePassword = await bcrypt.compare(
+            password,
+            userEmailExist.password,
+        );
+
+        if (!comparePassword){
+            res.status(401).json({
+                message: "Invalid credentials",
+            });
+            return;
+        }
+
+            let token;
+
+        if (userEmailExist && comparePassword){
+             token = jwt.sign({userId: userEmailExist._id}, JWT_TOKEN,{
+                expiresIn: "1h",
+            });
+        }
+
+        console.log(token);
+        res.status(200).json({
+            message: "Login successful",
+        });
+        return;
+    } catch(error){
+        console.error("Error during login:", error);
+        res
+        .status(500)
+        .json({error: "An error occurred during login"});
+    }
+};
+
+const getAuthenticatedUser = async (req, res) => {
+    return res.status(200).json(req.user);
+};
+
+
+
 module.exports ={
     getUser,
     getUserById,
     createUser,
     updateUser,
-    deleteUser
+    deleteUser,
+    loginUser,
+    getAuthenticatedUser,   
 };
